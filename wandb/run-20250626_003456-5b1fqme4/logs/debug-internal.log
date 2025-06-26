@@ -1,0 +1,7 @@
+{"time":"2025-06-26T00:34:57.035703477Z","level":"INFO","msg":"stream: starting","core version":"0.20.1","symlink path":"/home/sagemaker-user/csbai/multiturn_rl/wandb/run-20250626_003456-5b1fqme4/logs/debug-core.log"}
+{"time":"2025-06-26T00:34:57.207730841Z","level":"INFO","msg":"stream: created new stream","id":"5b1fqme4"}
+{"time":"2025-06-26T00:34:57.207829363Z","level":"INFO","msg":"stream: started","id":"5b1fqme4"}
+{"time":"2025-06-26T00:34:57.207894435Z","level":"INFO","msg":"writer: Do: started","stream_id":"5b1fqme4"}
+{"time":"2025-06-26T00:34:57.207944847Z","level":"INFO","msg":"handler: started","stream_id":"5b1fqme4"}
+{"time":"2025-06-26T00:34:57.207975668Z","level":"INFO","msg":"sender: started","stream_id":"5b1fqme4"}
+{"time":"2025-06-26T00:34:57.411417609Z","level":"INFO","msg":"Starting system monitor"}

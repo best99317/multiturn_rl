@@ -1,0 +1,15 @@
+{"time":"2025-06-25T22:42:59.289617641Z","level":"INFO","msg":"stream: starting","core version":"0.20.1","symlink path":"/home/sagemaker-user/csbai/multiturn_rl/wandb/run-20250625_224259-r7g7gjsy/logs/debug-core.log"}
+{"time":"2025-06-25T22:42:59.462707003Z","level":"INFO","msg":"stream: created new stream","id":"r7g7gjsy"}
+{"time":"2025-06-25T22:42:59.462744344Z","level":"INFO","msg":"stream: started","id":"r7g7gjsy"}
+{"time":"2025-06-25T22:42:59.462799536Z","level":"INFO","msg":"handler: started","stream_id":"r7g7gjsy"}
+{"time":"2025-06-25T22:42:59.462791276Z","level":"INFO","msg":"writer: Do: started","stream_id":"r7g7gjsy"}
+{"time":"2025-06-25T22:42:59.462862818Z","level":"INFO","msg":"sender: started","stream_id":"r7g7gjsy"}
+{"time":"2025-06-25T22:42:59.677512968Z","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-06-25T22:43:54.977177305Z","level":"INFO","msg":"stream: closing","id":"r7g7gjsy"}
+{"time":"2025-06-25T22:43:54.977234687Z","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-06-25T22:43:54.97736085Z","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-06-25T22:43:55.257869666Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-06-25T22:43:55.374036077Z","level":"INFO","msg":"handler: closed","stream_id":"r7g7gjsy"}
+{"time":"2025-06-25T22:43:55.374102119Z","level":"INFO","msg":"sender: closed","stream_id":"r7g7gjsy"}
+{"time":"2025-06-25T22:43:55.374079628Z","level":"INFO","msg":"writer: Close: closed","stream_id":"r7g7gjsy"}
+{"time":"2025-06-25T22:43:55.374221222Z","level":"INFO","msg":"stream: closed","id":"r7g7gjsy"}

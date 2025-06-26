@@ -1,0 +1,48 @@
+Traceback (most recent call last):
+  File "/home/sagemaker-user/.conda/envs/collabllm/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/sagemaker-user/.conda/envs/collabllm/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/opt/amazon/sagemaker/sagemaker-code-editor-server-data/extensions/ms-python.python-2023.20.0/pythonFiles/lib/python/debugpy/adapter/../../debugpy/launcher/../../debugpy/__main__.py", line 39, in <module>
+    cli.main()
+  File "/opt/amazon/sagemaker/sagemaker-code-editor-server-data/extensions/ms-python.python-2023.20.0/pythonFiles/lib/python/debugpy/adapter/../../debugpy/launcher/../../debugpy/../debugpy/server/cli.py", line 430, in main
+    run()
+  File "/opt/amazon/sagemaker/sagemaker-code-editor-server-data/extensions/ms-python.python-2023.20.0/pythonFiles/lib/python/debugpy/adapter/../../debugpy/launcher/../../debugpy/../debugpy/server/cli.py", line 284, in run_file
+    runpy.run_path(target, run_name="__main__")
+  File "/opt/amazon/sagemaker/sagemaker-code-editor-server-data/extensions/ms-python.python-2023.20.0/pythonFiles/lib/python/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_runpy.py", line 321, in run_path
+    return _run_module_code(code, init_globals, run_name,
+  File "/opt/amazon/sagemaker/sagemaker-code-editor-server-data/extensions/ms-python.python-2023.20.0/pythonFiles/lib/python/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_runpy.py", line 135, in _run_module_code
+    _run_code(code, mod_globals, init_globals,
+  File "/opt/amazon/sagemaker/sagemaker-code-editor-server-data/extensions/ms-python.python-2023.20.0/pythonFiles/lib/python/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_runpy.py", line 124, in _run_code
+    exec(code, run_globals)
+  File "/home/sagemaker-user/csbai/multiturn_rl/finetuning/sft.py", line 283, in <module>
+    main()
+  File "/home/sagemaker-user/csbai/multiturn_rl/finetuning/sft.py", line 263, in main
+    eval_dataset=ds["eval"],
+  File "/home/sagemaker-user/.conda/envs/collabllm/lib/python3.10/site-packages/datasets/dataset_dict.py", line 81, in __getitem__
+    return super().__getitem__(k)
+KeyError: 'eval'
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/home/sagemaker-user/.conda/envs/collabllm/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+[rank0]:     return _run_code(code, main_globals, None,
+[rank0]:   File "/home/sagemaker-user/.conda/envs/collabllm/lib/python3.10/runpy.py", line 86, in _run_code
+[rank0]:     exec(code, run_globals)
+[rank0]:   File "/opt/amazon/sagemaker/sagemaker-code-editor-server-data/extensions/ms-python.python-2023.20.0/pythonFiles/lib/python/debugpy/adapter/../../debugpy/launcher/../../debugpy/__main__.py", line 39, in <module>
+[rank0]:     cli.main()
+[rank0]:   File "/opt/amazon/sagemaker/sagemaker-code-editor-server-data/extensions/ms-python.python-2023.20.0/pythonFiles/lib/python/debugpy/adapter/../../debugpy/launcher/../../debugpy/../debugpy/server/cli.py", line 430, in main
+[rank0]:     run()
+[rank0]:   File "/opt/amazon/sagemaker/sagemaker-code-editor-server-data/extensions/ms-python.python-2023.20.0/pythonFiles/lib/python/debugpy/adapter/../../debugpy/launcher/../../debugpy/../debugpy/server/cli.py", line 284, in run_file
+[rank0]:     runpy.run_path(target, run_name="__main__")
+[rank0]:   File "/opt/amazon/sagemaker/sagemaker-code-editor-server-data/extensions/ms-python.python-2023.20.0/pythonFiles/lib/python/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_runpy.py", line 321, in run_path
+[rank0]:     return _run_module_code(code, init_globals, run_name,
+[rank0]:   File "/opt/amazon/sagemaker/sagemaker-code-editor-server-data/extensions/ms-python.python-2023.20.0/pythonFiles/lib/python/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_runpy.py", line 135, in _run_module_code
+[rank0]:     _run_code(code, mod_globals, init_globals,
+[rank0]:   File "/opt/amazon/sagemaker/sagemaker-code-editor-server-data/extensions/ms-python.python-2023.20.0/pythonFiles/lib/python/debugpy/_vendored/pydevd/_pydevd_bundle/pydevd_runpy.py", line 124, in _run_code
+[rank0]:     exec(code, run_globals)
+[rank0]:   File "/home/sagemaker-user/csbai/multiturn_rl/finetuning/sft.py", line 283, in <module>
+[rank0]:     main()
+[rank0]:   File "/home/sagemaker-user/csbai/multiturn_rl/finetuning/sft.py", line 263, in main
+[rank0]:     eval_dataset=ds["eval"],
+[rank0]:   File "/home/sagemaker-user/.conda/envs/collabllm/lib/python3.10/site-packages/datasets/dataset_dict.py", line 81, in __getitem__
+[rank0]:     return super().__getitem__(k)
+[rank0]: KeyError: 'eval'

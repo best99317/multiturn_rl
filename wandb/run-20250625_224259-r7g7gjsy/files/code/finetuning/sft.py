@@ -43,9 +43,6 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 WANDB__SERVICE_WAIT=300 torchrun --master_port=5680
 
 from __future__ import annotations
 
-import sys
-sys.path.append('/home/sagemaker-user/csbai/multiturn_rl')
-
 import argparse, os, json
 from typing import Tuple, Optional
 
@@ -58,15 +55,9 @@ from transformers import (
 import torch.distributed as dist
 from peft import PeftConfig, PeftModel, LoraConfig, get_peft_model
 # from collabllm.datasets.multiturn import MultiturnDataset
-from datasets import Dataset, DatasetDict, load_dataset, load_from_disk, Features, Value, Sequence
+from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
 from trl import SFTConfig, SFTTrainer
 import wandb
-import ast
-import random
-from utils.fixseed import fix_all_seeds
-
-
-
 
 # --------------------------------------------------------------------------- #
 # CLI
@@ -91,7 +82,6 @@ def parse_args() -> argparse.Namespace:
                    type=str, default="q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj")
 
     # Optim & schedule
-    p.add_argument("--seed", type=int, default=42)
     p.add_argument("--learning_rate", type=float, default=1e-5)
     p.add_argument("--num_train_epochs", type=int, default=1)
     p.add_argument("--per_device_train_batch_size", type=int, default=4)
@@ -125,26 +115,6 @@ def parse_args() -> argparse.Namespace:
         for k, v in override.items():
             setattr(args, k, v)
     return args
-
-
-def _uniform_split(
-    full_ds: Dataset,
-    *,
-    eval_ratio: float,
-    n_eval: Optional[int],
-    seed: int,
-) -> DatasetDict:
-    k = n_eval if n_eval is not None else int(eval_ratio * len(full_ds))
-    k = min(k, len(full_ds))
-    eval_idx = set(random.sample(range(len(full_ds)), k=k))
-    train_idx = [i for i in range(len(full_ds)) if i not in eval_idx]
-
-    return DatasetDict(
-        {
-            "train": full_ds.select(train_idx),
-            "eval": full_ds.select(sorted(eval_idx)),
-        }
-    )
 
 # --------------------------------------------------------------------------- #
 # Utilities
@@ -189,7 +159,6 @@ def load_model_and_tokenizer(
 def main() -> None:
     args = parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
-    fix_all_seeds(args.seed)
 
     local_rank = int(os.environ['LOCAL_RANK'])
     dist.init_process_group(backend='nccl', init_method=None)
@@ -201,23 +170,7 @@ def main() -> None:
     #                                                         lower_bound_metric=args.lower_bound_metric,
     #                                                         lower_bound=args.lower_bound)
 
-    def parse_conversations_batch(examples):
-        """Parse conversation column in batches"""
-        parsed_conversations = []
-        for conv in examples['conversation']:
-            try:
-                parsed_conversations.append(ast.literal_eval(conv))
-            except (ValueError, SyntaxError):
-                print(f"Warning: Could not parse: {conv}")
-                parsed_conversations.append([str(conv)])
-        
-        examples['conversation'] = parsed_conversations
-        return examples
-
-    ds = load_dataset("csv", data_files=args.dataset_repo)
-    ds = ds.map(parse_conversations_batch, batched=True)
-    ds = Dataset.from_dict({"messages": ds['train']['conversation']})
-    ds = _uniform_split(ds, eval_ratio=args.eval_ratio, seed=args.seed, n_eval=None)
+    ds = load_dataset("csv", data_files={"train":args.dataset_repo})
 
 
     # Bits-and-bytes
