@@ -28,7 +28,7 @@ class ConversationConfig:
     def __post_init__(self):
         if self.user_generation_kwargs is None:
             self.user_generation_kwargs = {
-                "model": "anthropic.claude-3-sonnet-20240229-v1:0",
+                "model": "anthropic.claude-sonnet-4-20250514-v1:0",
                 "temperature": 1.0,
                 "max_tokens": 512
             }
@@ -80,7 +80,7 @@ class MultiTurnConversationGenerator:
 
             state = {
                 'id': i,
-                'prompt': prompt,
+                'prompt': prompts[i],
                 'chat_history': chat_history,
                 'user_sim': user_sim,
                 'completed': False,

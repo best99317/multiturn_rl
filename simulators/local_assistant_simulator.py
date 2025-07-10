@@ -33,7 +33,7 @@ class LoRAAssistantSimulator:
                 enable_lora=True,
                 tensor_parallel_size=self.num_gpus if torch.cuda.is_available() else 1,
                 gpu_memory_utilization=0.7,  # Increased for LoRA
-                max_model_len=2048,  # Adjust based on your needs
+                max_model_len=4096,  # Adjust based on your needs
                 trust_remote_code=True,
                 max_lora_rank=64,
                 max_num_batched_tokens=4096,

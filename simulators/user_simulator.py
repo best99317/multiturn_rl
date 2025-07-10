@@ -43,6 +43,7 @@ class UserSimulator(object):
             elif role == "assistant":
                 formatted_history.append(f"Assistant: {content}")
         
+        formatted_history.append("User: ")  # Prompt for user response
         return "\n".join(formatted_history)
     
     def _messages_to_bedrock_format(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
