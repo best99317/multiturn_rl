@@ -6,10 +6,15 @@ import torch
 from concurrent.futures import ThreadPoolExecutor
 from simulators.user_simulator import UserSimulator
 from simulators.local_assistant_simulator import LoRAAssistantSimulator
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 @dataclass
 class ConversationConfig:
-    task_desc: str
+    user_meta_prompt: str
+    assistant_meta_prompt: str
     max_total_turns: int = 10
     max_gen_workers: int = 2  # Reduced for testing
     local_model_path: str = "microsoft/DialoGPT-medium"  # Using a smaller model for testing
@@ -42,6 +47,7 @@ class MultiTurnConversationGenerator:
         
         # Initialize assistant simulator with LoRA
         self.assistant_simulator = LoRAAssistantSimulator(
+            assistant_meta_prompt = config.assistant_meta_prompt,
             lora_model_path=config.local_model_path,
             base_model_path=config.base_model_path,
             num_gpus=torch.cuda.device_count() if torch.cuda.is_available() else 1,
@@ -54,30 +60,40 @@ class MultiTurnConversationGenerator:
         self.semaphore = asyncio.Semaphore(config.max_gen_workers)
         print("✅ Conversation generator ready!")
     
-    async def generate_conversations_batch(self, prompts: List[str], **kwargs) -> List[List[Dict[str, str]]]:
+    async def generate_conversations_batch(self, prompts: List[str]=None, conv_num: int=1, **kwargs) -> List[List[Dict[str, str]]]:
         """Generate multiple conversations with optimized batching - NEW METHOD"""
         print(f"🚀 Starting batch generation for {len(prompts)} conversations...")
         
         conversation_states = []
-        for i, prompt in enumerate(prompts):
+        for i in range(conv_num):
+            chat_history = []
+
+            user_sim = UserSimulator(
+                        user_meta_prompt=self.config.user_meta_prompt,
+                        **self.config.user_generation_kwargs
+                    )
+
+            if prompts: 
+                chat_history.append({"role": "user", "content": prompts[i]})
+            else:
+                chat_history = []
+
             state = {
                 'id': i,
                 'prompt': prompt,
-                'chat_history': [
-                    {"role": "system", "content": self.config.task_desc},
-                    {"role": "user", "content": prompt}
-                ],
-                'user_sim': UserSimulator(
-                    task_desc=self.config.task_desc,
-                    single_turn_prompt=prompt,
-                    **self.config.user_generation_kwargs
-                ),
+                'chat_history': chat_history,
+                'user_sim': user_sim,
                 'completed': False,
                 'turn_count': 0
             }
             conversation_states.append(state)
 
-            max_rounds = self.config.max_total_turns // 2
+        if not prompts: # no initial user prompts, generate user prompts first
+            active_states = [s for s in conversation_states if not s['completed']]
+            await self._process_user_turn_batch(active_states)
+
+
+        max_rounds = self.config.max_total_turns // 2
         
         for round_idx in range(max_rounds):
             # Filter active conversations
@@ -93,6 +109,7 @@ class MultiTurnConversationGenerator:
             
             # Check for terminations and generate user responses
             await self._process_user_turn_batch(active_states)
+
             
             # Update turn counts
             for state in active_states:
@@ -207,27 +224,31 @@ class MultiTurnConversationGenerator:
 
     async def generate_single_conversation(
         self,
-        single_turn_prompt: str,
+        init_user_prompt: str,
         **kwargs
     ) -> List[Dict[str, str]]:
         """Generate a single multi-turn conversation"""
         
         async with self.semaphore:
             try:
-                print(f"🔄 Starting conversation with: '{single_turn_prompt[:50]}...'")
-                
-                # Start with initial system message and user prompt
-                chat_history = [
-                    {"role": "system", "content": self.config.task_desc},
-                    {"role": "user", "content": single_turn_prompt}
-                ]
-                
                 # Initialize user simulator for this conversation
-                user_sim =UserSimulator(  
-                    task_desc=self.config.task_desc,
-                    single_turn_prompt=single_turn_prompt,
+                user_sim = UserSimulator(  
+                    user_meta_prompt=self.config.user_meta_prompt,
                     **self.config.user_generation_kwargs
                 )
+
+                if init_user_prompt:
+                    print(f"🔄 Starting conversation with: '{init_user_prompt[:50]}...'")
+                    
+                    # Start with initial system message and user prompt
+                    chat_history = [
+                        {"role": "user", "content": init_user_prompt}
+                    ]
+                else:
+                    chat_history = []
+                    user_response = await self._generate_user_response(user_sim, chat_history)
+                    chat_history.append({"role": "user", "content": user_response})
+                
                 
                 # Generate conversation turns
                 for turn_idx in range(self.config.max_total_turns // 2):

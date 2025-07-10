@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class LoRAAssistantSimulator:
     """Assistant simulator with LoRA support using vLLM"""
     
-    def __init__(self, lora_model_path: str, base_model_path: str, num_gpus: int = 1, **generation_kwargs):
+    def __init__(self, assistant_meta_prompt: None, lora_model_path: str, base_model_path: str, num_gpus: int = 1, **generation_kwargs):
         self.lora_model_path = lora_model_path
         self.base_model_path = base_model_path
         self.num_gpus = min(num_gpus, torch.cuda.device_count()) if torch.cuda.is_available() else 1
@@ -18,6 +18,7 @@ class LoRAAssistantSimulator:
         self.llm = None
         self.lora_request = None
         self.sampling_params = None
+        self.assistant_meta_prompt = assistant_meta_prompt
         print(f"🚀 Initializing LoRA assistant with {self.num_gpus} GPU(s)...")
         print(f"   Base model: {base_model_path}")
         print(f"   LoRA model: {lora_model_path}")
@@ -83,6 +84,9 @@ class LoRAAssistantSimulator:
         try:
             prompt = self._messages_to_prompt(messages)
             
+            # print("===================== Assistant input prompt: =====================\n", prompt)
+            # print("==========================================\n")
+            
             # Use LoRA request for generation
             
             outputs = self.llm.generate(
@@ -101,14 +105,15 @@ class LoRAAssistantSimulator:
     def _messages_to_prompt(self, messages: List[Dict[str, str]]) -> str:
         """Convert messages to simple prompt format"""
         prompt_parts = []
+
+        if self.assistant_meta_prompt:
+            prompt_parts.append(f"System: {self.assistant_meta_prompt}\n")
         
         for msg in messages:
             role = msg["role"]
             content = msg["content"]
-            
-            if role == "system":
-                prompt_parts.append(f"System: {content}\n")
-            elif role == "user":
+        
+            if role == "user":
                 prompt_parts.append(f"User: {content}\n")
             elif role == "assistant":
                 prompt_parts.append(f"Assistant: {content}\n")

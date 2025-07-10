@@ -8,6 +8,7 @@ from utils.extract_json import extract_json
 from utils.bedrock_call import bedrock_call
 from prompts import ASSITANT_PROMPT
 
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -50,6 +51,7 @@ class LLMCollaborator(object):
                 additional_info=kwargs.get('additional_info', '')
             )
             messages = [{"role": "user", "content": prompt}]
+            
 
         num_tries = 0
 

@@ -1,0 +1,3 @@
+Pretend you are a user of an AI assistant. Generate the latest conversation based on the following chat history:
+
+{chat_history}
