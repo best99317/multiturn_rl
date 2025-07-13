@@ -21,9 +21,8 @@ class ConversationConfig:
     base_model_path: str = "microsoft/DialoGPT-medium"
     user_generation_kwargs: Dict[str, Any] = None
     assistant_generation_kwargs: Dict[str, Any] = None
-    batch_size: int = 10  # Process conversations in batches
     enable_batching: bool = True  # Enable batch processing for better performance
-    bedrock_rate_limit_delay: float = 0.1  # Delay between bedrock calls to avoid rate limits
+    bedrock_rate_limit_delay: float = 0.01  # Delay between bedrock calls to avoid rate limits
 
     def __post_init__(self):
         if self.user_generation_kwargs is None:
@@ -60,20 +59,36 @@ class MultiTurnConversationGenerator:
         self.semaphore = asyncio.Semaphore(config.max_gen_workers)
         print("✅ Conversation generator ready!")
     
-    async def generate_conversations_batch(self, prompts: List[str]=None, conv_num: int=1, **kwargs) -> List[List[Dict[str, str]]]:
+    async def generate_conversations_batch(self, prompts: List[str]=None, conv_num: int=1, batch_configs: List[Dict]=None, **kwargs) -> List[List[Dict[str, str]]]:
         """Generate multiple conversations with optimized batching - NEW METHOD"""
         print(f"🚀 Starting batch generation for {len(prompts)} conversations...")
+
+        if batch_configs is not None:
+            conv_num = len(batch_configs)
+            if prompts is None:
+                prompts = [None for config in batch_configs]
+            print(f"🚀 Starting batch generation for {conv_num} conversations with custom configs...")
+        else:
+            print(f"🚀 Starting batch generation for {conv_num} conversations...")
         
         conversation_states = []
         for i in range(conv_num):
             chat_history = []
 
+            if batch_configs and i < len(batch_configs):
+                config = batch_configs[i]
+                user_meta_prompt = config.get('user_meta_prompt', self.config.user_meta_prompt)
+                user_gen_kwargs = config.get('user_generation_kwargs', self.config.user_generation_kwargs)
+            else:
+                user_meta_prompt = self.config.user_meta_prompt
+                user_gen_kwargs = self.config.user_generation_kwargs
+
             user_sim = UserSimulator(
-                        user_meta_prompt=self.config.user_meta_prompt,
-                        **self.config.user_generation_kwargs
+                        user_meta_prompt=user_meta_prompt,
+                        **user_gen_kwargs
                     )
 
-            if prompts: 
+            if prompts[i]: 
                 chat_history.append({"role": "user", "content": prompts[i]})
             else:
                 chat_history = []
@@ -88,7 +103,7 @@ class MultiTurnConversationGenerator:
             }
             conversation_states.append(state)
 
-        if not prompts: # no initial user prompts, generate user prompts first
+        if not prompts or not prompts[0]: # no initial user prompts, generate user prompts first
             active_states = [s for s in conversation_states if not s['completed']]
             await self._process_user_turn_batch(active_states)
 

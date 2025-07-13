@@ -1,7 +1,6 @@
 from typing import List, Dict
 import logging
 import boto3
-import time
 import logging
 
 from prompts import USER_PROMPT, TEST_PROMPT, TERMINATION_SIGNAL
@@ -24,7 +23,7 @@ class UserSimulator(object):
         self.num_retries = num_retries
 
         self.llm_kwargs = {"temperature": 1.0, "max_tokens": 1024, **llm_kwargs}
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="bedrock")
+        self._executor = ThreadPoolExecutor(max_workers=100, thread_name_prefix="bedrock")
         
         assert 'model' in self.llm_kwargs, "Model name must be provided in llm_kwargs"
 
@@ -70,53 +69,41 @@ class UserSimulator(object):
         # print("++++++++++++++++++++++ User input prompt: ++++++++++++++++++++++\n", prompt)
         # print("++++++++++++++++++++++++++++++++++++++++++++\n")
         
-        num_tries = 0
-        while True:
-            try:
-                response = bedrock_call(
-                    model=self.llm_kwargs['model'], 
-                    max_tokens=self.llm_kwargs['max_tokens'],
-                    temperature=self.llm_kwargs['temperature'],
-                    messages=prompt
-                )
-                
-            except Exception as e:
-                if isinstance(e, KeyboardInterrupt):
-                    raise e
-                print(f"Bedrock error: {e}")
-                
-                num_tries += 1
-                if num_tries > self.num_retries:
-                    print("Error: User simulator bedrock call too many retries ... Possible error in code ...")
-                    break
-                
-                time.sleep(2)
-                continue
-
-            try:
-                if isinstance(response, str):
-                    import json
-                    try:
-                        parsed_response = json.loads(response)
-                    except json.JSONDecodeError:
-                        parsed_response = response
-                else:
-                    parsed_response = response
-            except Exception as e:
-                logger.error(f"Error parsing response: {e}")
-                parsed_response = response
-            
-            if isinstance(response, dict):
-                keys = response.keys()
-                if {'thought', 'response'}.issubset(keys):
-                    response = response.pop('response')
-                    break
-                else:
-                    logger.error(f"[LLMCollaborator] Keys {keys} do not match expected keys. Retrying...")
-                    continue
-            else:
-                break
         
+        response = bedrock_call(
+            model=self.llm_kwargs['model'], 
+            max_tokens=self.llm_kwargs['max_tokens'],
+            temperature=self.llm_kwargs['temperature'],
+            messages=prompt,
+            num_retries=self.num_retries
+        )
+        
+        if response is None:
+            print("Error: User simulator bedrock call failed after retries")
+            return ""
+
+        try:
+            if isinstance(response, str):
+                import json
+                try:
+                    parsed_response = json.loads(response)
+                except json.JSONDecodeError:
+                    parsed_response = response
+            else:
+                parsed_response = response
+        except Exception as e:
+            logger.error(f"Error parsing response: {e}")
+            parsed_response = response
+        
+        if isinstance(response, dict):
+            keys = response.keys()
+            if {'thought', 'response'}.issubset(keys):
+                response = response.pop('response')
+            elif {'generation'}.issubset(keys):
+                response = response.pop('generation')
+            else:
+                logger.error(f"[LLMCollaborator] Keys {keys} do not match expected keys. Retrying...")
+
         return str(response).strip()
 
     def __call__(self, messages: List[dict]):
