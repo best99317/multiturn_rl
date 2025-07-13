@@ -1,7 +1,6 @@
 from typing import List, Dict
 import logging
 import boto3
-import logging
 
 from prompts import USER_PROMPT, TEST_PROMPT, TERMINATION_SIGNAL
 from utils.parse_message import parse_messages

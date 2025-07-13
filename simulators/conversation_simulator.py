@@ -23,6 +23,7 @@ class ConversationConfig:
     assistant_generation_kwargs: Dict[str, Any] = None
     enable_batching: bool = True  # Enable batch processing for better performance
     bedrock_rate_limit_delay: float = 0.01  # Delay between bedrock calls to avoid rate limits
+    use_bedrock_assistant: bool = False  # NEW: Flag to use Bedrock assistant
 
     def __post_init__(self):
         if self.user_generation_kwargs is None:
@@ -43,15 +44,25 @@ class MultiTurnConversationGenerator:
     def __init__(self, config: ConversationConfig):
         self.config = config
         print("🤖 Initializing conversation generator...")
-        
-        # Initialize assistant simulator with LoRA
-        self.assistant_simulator = LoRAAssistantSimulator(
-            assistant_meta_prompt = config.assistant_meta_prompt,
-            lora_model_path=config.local_model_path,
-            base_model_path=config.base_model_path,
-            num_gpus=torch.cuda.device_count() if torch.cuda.is_available() else 1,
-            **config.assistant_generation_kwargs
-        )
+
+        # Initialize assistant simulator based on config
+        if hasattr(config, 'use_bedrock_assistant') and config.use_bedrock_assistant:
+            # Initialize assistant simulator to be called on bedrock
+            from simulators.assistant_simulator import AssistantSimulator
+            self.assistant_simulator = AssistantSimulator(
+                assistant_meta_prompt=config.assistant_meta_prompt,
+                **config.assistant_generation_kwargs
+            )
+            print("✅ Using Bedrock Assistant Simulator")
+        else:
+            # Initialize assistant simulator with LoRA
+            self.assistant_simulator = LoRAAssistantSimulator(
+                assistant_meta_prompt = config.assistant_meta_prompt,
+                lora_model_path=config.local_model_path,
+                base_model_path=config.base_model_path,
+                num_gpus=torch.cuda.device_count() if torch.cuda.is_available() else 1,
+                **config.assistant_generation_kwargs
+            )
 
         self.executor = ThreadPoolExecutor(max_workers=config.max_gen_workers)
         
@@ -162,19 +173,38 @@ class MultiTurnConversationGenerator:
         
         if not active_states:
             return
+
+        if self.config.use_bedrock_assistant:
+            # Generate user responses concurrently
+            tasks = []
+            for state in active_states:
+                task = self._generate_bedrock_assistant_response(state)
+                tasks.append(task)
             
-        message_lists = [state['chat_history'] for state in states]
-        
-        # Generate responses in batch using thread pool
-        loop = asyncio.get_event_loop()
-        responses = await loop.run_in_executor(
-            self.executor,
-            self.assistant_simulator.generate_responses_batch,
-            message_lists
-        )
-        
+            if hasattr(self.config, 'bedrock_rate_limit_delay'):
+                for i, task in enumerate(tasks):
+                    if i > 0:
+                        await asyncio.sleep(self.config.bedrock_rate_limit_delay)
+            
+            responses = await asyncio.gather(*tasks, return_exceptions=True)
+                
+        else: 
+            message_lists = [state['chat_history'] for state in states]
+            
+            # Generate responses in batch using thread pool
+            loop = asyncio.get_event_loop()
+            responses = await loop.run_in_executor(
+                self.executor,
+                self.assistant_simulator.generate_responses_batch,
+                message_lists
+            )
+            
         # Update conversations with responses
         for state, response in zip(states, responses):
+            if isinstance(response, Exception):
+                    logger.error(f"Error generating assistant response for conversation {state['id']}: {response}")
+                    response = "I see. Please continue."
+
             state['chat_history'].append({"role": "assistant", "content": response})
             
             # Check termination
@@ -296,6 +326,17 @@ class MultiTurnConversationGenerator:
                 logger.error(f"❌ Error generating conversation: {e}")
                 return None
     
+    # assistant call to AssistantSimulator on Bedrock
+    async def _generate_bedrock_assistant_response(self, state: Dict) -> str:
+        """Generate single Bedrock assistant response"""
+        try:
+            chat_history = state['chat_history'].copy()
+            return await self.assistant_simulator.async_call(chat_history)
+        except Exception as e:
+            logger.error(f"Error generating Bedrock assistant response: {e}")
+            return "I understand. How can I help you further?"
+
+    # assistant call to LoRAAssistantSimulator
     async def _generate_assistant_response(self, chat_history: List[Dict[str, str]]) -> str:
         """Generate assistant response"""
         try:

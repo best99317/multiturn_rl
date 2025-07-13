@@ -6,7 +6,7 @@ current_dir = osp.dirname(__file__)
 TERMINATION_SIGNAL = os.getenv('TERMINATION_SIGNAL', "[[TERMINATE CHAT]]")
 
 with open(osp.join(current_dir, 'test_assistant_prompt.txt'), 'r') as f:
-    ASSITANT_PROMPT = f.read()
+    ASSISTANT_PROMPT = f.read()
 
 with open(osp.join(current_dir, 'test_prompt.txt'), 'r') as f:
     TEST_PROMPT = f.read()
