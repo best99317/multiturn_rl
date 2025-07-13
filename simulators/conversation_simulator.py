@@ -387,7 +387,7 @@ class MultiTurnConversationGenerator:
         message_lower = message.lower()
     
         # Check for explicit termination signal (adjust based on your TERMINATION_SIGNAL)
-        if "[DONE]" in message or "TERMINATE" in message:
+        if "[DONE]" in message or "[[TERMINATE CHAT]]" in message:
             return True
             
         return any(phrase in message_lower for phrase in termination_phrases)

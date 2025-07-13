@@ -98,5 +98,5 @@ def bedrock_call(model: str = None, messages: List[dict] = None, max_tokens: int
                 print("Error: Bedrock call too many retries ... Possible error in code ...")
                 return None  # 🔴 ADDED: Return None after max retries
             
-            time.sleep(10*num_tries)  # 🔴 ADDED: Sleep before retry
+            time.sleep(20*num_tries)  # 🔴 ADDED: Sleep before retry
             continue
