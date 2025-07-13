@@ -380,14 +380,13 @@ class MultiTurnConversationGenerator:
     def _should_terminate_conversation(self, message: str) -> bool:
         """Check if conversation should be terminated"""
         termination_phrases = [
-            "thank you for your help", "that's all I need", "i understand now",
-            "perfect!", "goodbye", "bye"
+            "that's all I need","goodbye"
         ]
         
         message_lower = message.lower()
     
         # Check for explicit termination signal (adjust based on your TERMINATION_SIGNAL)
-        if "[DONE]" in message or "[[TERMINATE CHAT]]" in message:
+        if "TERMINATE" in message or "[[TERMINATE CHAT]]" in message:
             return True
             
         return any(phrase in message_lower for phrase in termination_phrases)
