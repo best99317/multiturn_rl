@@ -1,45 +1,4 @@
 #!/usr/bin/env python3
-"""
-Preparation: To run the following, you need to generate multiturn data from `scripts.engine.build_dataset`
-
-Fine-tune or SFT a causal-LM + LoRA adapter on a multi-turn dataset.
-Examples:
-w/ Lora (on 2 NVIDIA A100-SXM4-80GB GPUs):
--------
-CUDA_VISIBLE_DEVICES=0,1 WANDB__SERVICE_WAIT=300 torchrun --master_port=56400 --nnodes=1 --nproc_per_node=2 -m scripts.train.sft \
-    --dataset_repo collabllm/collabllm-multiturn-medium \
-    --output_dir outputs/sft/collabllm-multiturn-medium \
-    --model_name meta-llama/Llama-3.1-8B-Instruct \
-    --per_device_train_batch_size 4 \
-    --per_device_eval_batch_size 4 \
-    --gradient_accumulation_steps 8 \
-    --num_train_epochs 3 \
-    --learning_rate 1e-5 \
-    --eval_steps 1 \
-    --logging_steps 1 \
-    --wandb_entity dsp-team \
-    --wandb_project collabllm \
-    --use_lora
-
-w/ Lora & Quantization (4-bit) (on 4 NVIDIA A100-SXM4-80GB GPUs):
--------
-CUDA_VISIBLE_DEVICES=0,1,2,3 WANDB__SERVICE_WAIT=300 torchrun --master_port=56800 --nnodes=1 --nproc_per_node=4 -m scripts.train.sft \
-    --dataset_repo collabllm/collabllm-multiturn-math-hard \
-    --output_dir outputs/debug/collabllm-multiturn-math-hard \
-    --model_name meta-llama/Llama-3.1-8B-Instruct \
-    --per_device_train_batch_size 4 \
-    --per_device_eval_batch_size 4 \
-    --gradient_accumulation_steps 4 \
-    --num_train_epochs 3 \
-    --learning_rate 1e-5 \
-    --eval_steps 1 \
-    --logging_steps 1 \
-    --wandb_entity dsp-team \
-    --wandb_project collabllm \
-    --lower_bound_metric "rewards.accuracy" \
-    --lower_bound 0.5 \
-    --use_lora  --use_4bit
-"""
 
 from __future__ import annotations
 
@@ -57,7 +16,6 @@ from transformers import (
 )
 import torch.distributed as dist
 from peft import PeftConfig, PeftModel, LoraConfig, get_peft_model
-# from collabllm.datasets.multiturn import MultiturnDataset
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk, Features, Value, Sequence
 from trl import SFTConfig, SFTTrainer
 import wandb
@@ -79,8 +37,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--output_dir",      type=str, required=True)
     p.add_argument("--resume_ckpt_dir", type=str, default=None)
     p.add_argument("--eval_ratio",         type=float, default=0.1)
-    p.add_argument("--lower_bound_metric", type=str, default=None)
-    p.add_argument("--lower_bound",        type=float, default=0.0)
 
     # Base / adapter models
     p.add_argument("--model_name", type=str, required=True)
@@ -196,10 +152,6 @@ def main() -> None:
     torch.cuda.set_device(local_rank)
     dist.barrier()
 
-    # Dataset
-    # ds = MultiturnDataset(args.dataset_repo).to_sft_dataset(eval_ratio=args.eval_ratio,
-    #                                                         lower_bound_metric=args.lower_bound_metric,
-    #                                                         lower_bound=args.lower_bound)
 
     def parse_conversations_batch(examples):
         """Parse conversation column in batches"""

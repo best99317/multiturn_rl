@@ -206,11 +206,6 @@ class MultiTurnConversationGenerator:
                     response = "I see. Please continue."
 
             state['chat_history'].append({"role": "assistant", "content": response})
-            
-            # Check termination
-            if self._should_terminate_conversation(response):
-                state['completed'] = True
-                print(f"  🛑 Conversation {state['id']} terminated by assistant at turn {state['turn_count'] + 1}")
 
     
     async def _process_user_turn_batch(self, states: List[Dict]):
