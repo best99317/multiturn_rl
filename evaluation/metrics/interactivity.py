@@ -108,35 +108,161 @@ def parse_and_format_conversation(conversation_source: Union[List[Dict[str, str]
         print(f"Error parsing conversation: {e}")
         return ""
 
+def _extract_with_regex(response: str) -> tuple[Optional[float], Optional[str]]:
+    """Extract score and reasoning using regex patterns"""
+    import re
+    
+    # Look for score
+    score_patterns = [
+        r'"interactivity":\s*([0-9]*\.?[0-9]+)',
+        r'interactivity["\s]*:?\s*([0-9]*\.?[0-9]+)',
+        r'score["\s]*:?\s*([0-9]*\.?[0-9]+)',
+    ]
+    
+    score = None
+    for pattern in score_patterns:
+        match = re.search(pattern, response, re.IGNORECASE)
+        if match:
+            try:
+                score = float(match.group(1))
+                if 0 <= score <= 1:
+                    break
+            except ValueError:
+                continue
+    
+    # Look for reasoning/thought
+    reasoning_patterns = [
+        r'"thought":\s*"([^"]*)',
+        r'thought["\s]*:?\s*["\']([^"\']*)',
+        r'reasoning["\s]*:?\s*["\']([^"\']*)',
+        r'explanation["\s]*:?\s*["\']([^"\']*)',
+    ]
+    
+    reasoning = ""
+    for pattern in reasoning_patterns:
+        match = re.search(pattern, response, re.IGNORECASE | re.DOTALL)
+        if match:
+            reasoning = match.group(1).strip()
+            break
+    
+    if not reasoning:
+        # Use first 200 chars as reasoning if we can't find structured reasoning
+        reasoning = response[:200].strip()
+    
+    return score, reasoning
 
-def extract_interactivity_score(response):
-    """Extract interactivity score from LLM response"""
+def _try_parse_json_candidate(json_str: str) -> tuple[Optional[float], Optional[str]]:
+    """Try to parse a JSON candidate string"""
     try:
-        # Try to find JSON in the response
+        # Clean up the JSON string
+        json_str = json_str.strip()
+        
+        # Remove common problematic characters
+        json_str = json_str.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+        
+        # Fix common quote issues - more aggressive approach
+        # Replace smart quotes with regular quotes
+        json_str = json_str.replace('"', '"').replace('"', '"')
+        json_str = json_str.replace(''', "'").replace(''', "'")
+        
+        # Try to fix unescaped quotes in the thought field
+        # This is a more robust approach that handles nested quotes
+        json_str = _fix_thought_field_quotes(json_str)
+        
+        # Try parsing
+        result = json.loads(json_str)
+        score = float(result.get('interactivity', 0))
+        reasoning = result.get('thought', '')
+        
+        # Ensure score is in valid range
+        score = max(0.0, min(1.0, score))
+        return score, reasoning
+        
+    except json.JSONDecodeError as e:
+        # If JSON parsing fails, try a more aggressive fix
+        try:
+            fixed_json = _aggressive_json_fix(json_str)
+            result = json.loads(fixed_json)
+            score = float(result.get('interactivity', 0))
+            reasoning = result.get('thought', '')
+            score = max(0.0, min(1.0, score))
+            return score, reasoning
+        except:
+            pass
+    except Exception:
+        pass
+    
+    return None, None
+
+def extract_interactivity_score_and_reasoning(response: str) -> tuple[Optional[float], Optional[str]]:
+    """
+    Extract both interactivity score and reasoning from LLM response with robust parsing
+    
+    Args:
+        response: Raw response from the evaluator LLM
+        
+    Returns:
+        Tuple of (score, reasoning) or (None, None) if extraction failed
+    """
+    try:
+        # Clean the response first
+        response = response.strip()
+        
+        # Strategy 1: Try multiple JSON extraction approaches
+        json_candidates = []
+        
+        # Find all potential JSON blocks
+        import re
+        
+        # Look for JSON-like patterns
+        json_patterns = [
+            r'\{[^{}]*"interactivity"[^{}]*\}',  # Simple single-level JSON
+            r'\{.*?"interactivity".*?\}',         # More flexible JSON
+            r'\{[\s\S]*?"interactivity"[\s\S]*?\}' # Multi-line JSON
+        ]
+        
+        for pattern in json_patterns:
+            matches = re.findall(pattern, response, re.DOTALL)
+            json_candidates.extend(matches)
+        
+        # Also try the traditional approach
         start_idx = response.find('{')
         end_idx = response.rfind('}') + 1
-        
         if start_idx != -1 and end_idx != -1:
-            json_str = response[start_idx:end_idx]
-            result = json.loads(json_str)
-            score = float(result.get('interactivity', 0))
-            # Ensure score is in valid range
-            return max(0.0, min(1.0, score))
-        else:
-            # Fallback: try to extract number directly
-            import re
-            numbers = re.findall(r'"interactivity":\s*([0-9.]+)', response)
-            if numbers:
-                score = float(numbers[0])
-                return max(0.0, min(1.0, score))
-            
-        print(f"Could not extract score from response: {response[:200]}...")
-        return None
+            json_candidates.append(response[start_idx:end_idx])
+        
+        # Try to parse each candidate
+        for json_str in json_candidates:
+            score, reasoning = _try_parse_json_candidate(json_str)
+            if score is not None:
+                return score, reasoning
+        
+        # Strategy 2: Regex-based extraction as fallback
+        score, reasoning = _extract_with_regex(response)
+        if score is not None:
+            return score, reasoning
+        
+        # Strategy 3: Last resort - look for any number between 0 and 1
+        numbers = re.findall(r'\b(0\.[0-9]+|1\.0+|0|1)\b', response)
+        for num_str in numbers:
+            try:
+                score = float(num_str)
+                if 0 <= score <= 1:
+                    reasoning = f"Extracted from: {response[:200]}..."
+                    print(f"Using fallback score extraction: {score}")
+                    return score, reasoning
+            except ValueError:
+                continue
+        
+        print(f"Could not extract score from response: {response[:300]}...")
+        return None, None
+        
     except Exception as e:
-        print(f"Error extracting score: {e}")
-        return None
+        print(f"Error extracting score and reasoning: {e}")
+        print(f"Response preview: {response[:200]}...")
+        return None, None
 
-def evaluate_interactivity_single(conversation_source: Union[List[Dict[str, str]], str], 
+def evaluate_interactivity_single_with_reasoning(conversation_source: Union[List[Dict[str, str]], str], 
                                 model_id: str = "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
                                 max_turns: int = 10) -> Optional[float]:
     """
@@ -154,7 +280,7 @@ def evaluate_interactivity_single(conversation_source: Union[List[Dict[str, str]
         # Parse and format conversation in one step
         chat_history = parse_and_format_conversation(conversation_source, max_turns)
         if not chat_history:
-            return None
+            return None, None
         
         # Create the evaluation prompt
         prompt = INTERACTIVITY_PROMPT.format(chat_history=chat_history)
@@ -165,7 +291,7 @@ def evaluate_interactivity_single(conversation_source: Union[List[Dict[str, str]
         # Call the model
         if bedrock_call is None:
             print("Warning: bedrock_call not available, returning placeholder score")
-            return 0.5  # Placeholder score
+            return 0.5, "Placeholder response - bedrock_call not available"  # Placeholder score
             
         response = bedrock_call(
             model=model_id,
@@ -175,17 +301,25 @@ def evaluate_interactivity_single(conversation_source: Union[List[Dict[str, str]
         )
         
         if response is None:
-            return None
+            return None, None
         
         # Extract and return score
-        return extract_interactivity_score(response)
+        return extract_interactivity_score_and_reasoning(response)
         
     except Exception as e:
         print(f"Error evaluating conversation interactivity: {e}")
-        return None
+        return None, None
 
+def evaluate_interactivity_single(conversation_source: Union[List[Dict[str, str]], str], 
+                                model_id: str = "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+                                max_turns: int = 10) -> Optional[float]:
+    """
+    Backwards compatible function that only returns the score
+    """
+    score, _ = evaluate_interactivity_single_with_reasoning(conversation_source, model_id, max_turns)
+    return score
 
-def evaluate_interactivity_batch(conversation_sources: List[Union[List[Dict[str, str]], str]], 
+def evaluate_interactivity_batch_with_reasoning(conversation_sources: List[Union[List[Dict[str, str]], str]], 
                                 model_id: str = "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
                                 max_workers: int = 10,
                                 max_turns: int = 10) -> List[Optional[float]]:
@@ -201,12 +335,13 @@ def evaluate_interactivity_batch(conversation_sources: List[Union[List[Dict[str,
     Returns:
         List of interactivity scores (same order as input)
     """
-    results = [None] * len(conversation_sources)
+    scores = [None] * len(conversation_sources)
+    reasonings = [None] * len(conversation_sources)
     
     def evaluate_single_wrapper(idx_conv_pair):
         idx, conversation_source = idx_conv_pair
-        score = evaluate_interactivity_single(conversation_source, model_id, max_turns)
-        return idx, score
+        score, reasoning = evaluate_interactivity_single_with_reasoning(conversation_source, model_id, max_turns)
+        return idx, score, reasoning
     
     # Process conversations in parallel
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -219,41 +354,56 @@ def evaluate_interactivity_batch(conversation_sources: List[Union[List[Dict[str,
         # Collect results as they complete
         completed = 0
         for future in as_completed(future_to_index):
-            idx, score = future.result()
-            results[idx] = score
+            idx, score, reasoning = future.result()
+            scores[idx] = score
+            reasonings[idx] = reasoning
             completed += 1
             
             if completed % 10 == 0:
                 print(f"Completed {completed}/{len(conversation_sources)} interactivity evaluations")
-    
-    return results
 
-async def evaluate_interactivity_batch_async(conversation_sources: List[Union[List[Dict[str, str]], str]], 
-                                           model_id: str = "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-                                           max_workers: int = 10,
-                                           max_turns: int = 10) -> List[Optional[float]]:
+    return scores, reasonings
+
+def evaluate_interactivity_batch(conversation_sources: List[Union[List[Dict[str, str]], str]], 
+                                model_id: str = "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+                                max_workers: int = 10,
+                                max_turns: int = 10) -> List[Optional[float]]:
     """
-    Async version of batch interactivity evaluation
+    Backwards compatible function that only returns scores
+    """
+    scores, _ = evaluate_interactivity_batch_with_reasoning(conversation_sources, model_id, max_workers, max_turns)
+    return scores
+
+async def evaluate_interactivity_batch_async_with_reasoning(conversation_sources: List[Union[List[Dict[str, str]], str]], 
+                                                          model_id: str = "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+                                                          max_workers: int = 10,
+                                                          max_turns: int = 10) -> tuple[List[Optional[float]], List[Optional[str]]]:
+    """
+    Async version of batch interactivity evaluation with reasoning
     
-    Args:
-        conversation_sources: List of conversations in any supported format
-        model_id: Model ID for the evaluator
-        max_workers: Number of parallel workers
-        max_turns: Maximum number of turns to include in evaluation
-        
     Returns:
-        List of interactivity scores (same order as input)
+        Tuple of (scores_list, reasoning_list)
     """
     loop = asyncio.get_event_loop()
     
     # Run the synchronous batch evaluation in a thread pool
-    result = await loop.run_in_executor(
+    scores, reasonings = await loop.run_in_executor(
         None, 
-        evaluate_interactivity_batch, 
+        evaluate_interactivity_batch_with_reasoning, 
         conversation_sources, 
         model_id, 
         max_workers,
         max_turns
     )
     
-    return result
+    return scores, reasonings
+
+async def evaluate_interactivity_batch_async(conversation_sources: List[Union[List[Dict[str, str]], str]], 
+                                           model_id: str = "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+                                           max_workers: int = 10,
+                                           max_turns: int = 10) -> List[Optional[float]]:
+    """
+    Backwards compatible async function that only returns scores
+    """
+    scores, _ = await evaluate_interactivity_batch_async_with_reasoning(conversation_sources, model_id, max_workers, max_turns)
+    return scores

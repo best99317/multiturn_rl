@@ -324,12 +324,20 @@ class MultiTurnConversationGenerator:
     # assistant call to AssistantSimulator on Bedrock
     async def _generate_bedrock_assistant_response(self, state: Dict) -> str:
         """Generate single Bedrock assistant response"""
-        try:
-            chat_history = state['chat_history'].copy()
-            return await self.assistant_simulator.async_call(chat_history)
-        except Exception as e:
-            logger.error(f"Error generating Bedrock assistant response: {e}")
-            return "I understand. How can I help you further?"
+        max_retries = 10
+        retry_delay = 60  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                chat_history = state['chat_history'].copy()
+                return await self.assistant_simulator.async_call(chat_history)
+            except Exception as e:
+                if attempt < max_retries - 1:  # Not the last attempt
+                    logger.warning(f"Error generating Bedrock assistant response (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {retry_delay}s...")
+                    await asyncio.sleep((attempt+1) * retry_delay)
+                else:  # Last attempt failed
+                    logger.error(f"Error generating Bedrock assistant response after {max_retries} attempts: {e}")
+                    return "I understand. How can I help you further?"
 
     # assistant call to LoRAAssistantSimulator
     async def _generate_assistant_response(self, chat_history: List[Dict[str, str]]) -> str:
