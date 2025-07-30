@@ -155,18 +155,36 @@ def main() -> None:
 
     def parse_conversations_batch(examples):
         """Parse conversation column in batches"""
+        
+        # More conservative Unicode cleaning - only remove surrogates
+        def clean_unicode_conservative(obj):
+            if isinstance(obj, str):
+                # Only remove surrogate characters, keep everything else
+                return ''.join(c for c in obj if not (0xD800 <= ord(c) <= 0xDFFF))
+            elif isinstance(obj, list):
+                return [clean_unicode_conservative(item) for item in obj]
+            elif isinstance(obj, dict):
+                return {k: clean_unicode_conservative(v) for k, v in obj.items()}
+            else:
+                return obj
+        
         parsed_conversations = []
         for conv in examples['conversation']:
             try:
-                parsed_conversations.append(ast.literal_eval(conv))
+                parsed = ast.literal_eval(conv)
+                # Only clean surrogates, preserve all other text
+                cleaned = clean_unicode_conservative(parsed)
+                parsed_conversations.append(cleaned)
             except (ValueError, SyntaxError):
                 print(f"Warning: Could not parse: {conv}")
                 parsed_conversations.append([str(conv)])
         
         examples['conversation'] = parsed_conversations
+        
+        # Only clean the conversation field, leave other fields untouched
         return examples
 
-    ds = load_dataset("csv", data_files=args.dataset_repo)
+    ds = load_dataset("csv", data_files=args.dataset_repo, encoding="utf-8", encoding_errors="ignore")
     ds = ds.map(parse_conversations_batch, batched=True)
     ds = Dataset.from_dict({"messages": ds['train']['conversation']})
     ds = _uniform_split(ds, eval_ratio=args.eval_ratio, seed=args.seed, n_eval=None)

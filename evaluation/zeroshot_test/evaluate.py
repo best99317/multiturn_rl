@@ -78,7 +78,7 @@ def main(from_json: str = None, threshold: int = 2):
 
     print(f'Results are saved in {to_dir}!')
 
-def evaluate(pred_list, gt_list, condition_list, idx_list, Ks=[1, 5, 10, 20]):
+def evaluate(pred_list, gt_list, condition_list, idx_list, Ks=[1, 5]):
     """ evaluate the genered recommendation list and return the results in pd.DataFrame.
     Args:
         pred_list (list of list of str): movie names in the vocabulary, which is predicted by the model.

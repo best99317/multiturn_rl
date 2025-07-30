@@ -35,6 +35,7 @@ class ConversationConfig:
         if self.assistant_generation_kwargs is None:
             self.assistant_generation_kwargs = {
                 "temperature": 0.7,
+                'top_p': 0.9,
                 "max_tokens": 512
             }
 

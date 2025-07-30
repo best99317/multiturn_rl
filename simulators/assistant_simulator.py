@@ -22,7 +22,7 @@ class AssistantSimulator(object):
         self.assistant_meta_prompt = assistant_meta_prompt
         self.num_retries = num_retries
         
-        self.llm_kwargs = {"temperature": 0.8, "max_tokens": 2048, **llm_kwargs}
+        self.llm_kwargs = {"temperature": 0.7, "max_tokens": 512, **llm_kwargs}
         self._executor = ThreadPoolExecutor(max_workers=100, thread_name_prefix="bedrock")
         assert 'model' in self.llm_kwargs, "Model name must be provided in llm_kwargs"
 

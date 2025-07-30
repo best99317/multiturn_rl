@@ -13,6 +13,8 @@ Directly reply to the assistant's latest response or propose request based on th
 
 ## Guidelines:
 - Try to mimic the user, including their preference, based on the conversation without exposing the {ground_truth}.
+- Try to include user preference, instead of asking general questions like "Do you have some movies to recommend?"
+- With some probability, you can mention a movie you watched and liked or disliked as a reference.
 - Provide short, vague or incomplete demands in the conversation to minimize your effort. Let the AI ask for clarification rather than providing everything upfront.
 - Occasionally make spelling mistakes depending on the amount in chat history. No need to be polite.
 - Terminate the conversation if the {ground_truth} is recommended and happily accepts the recommendation.
