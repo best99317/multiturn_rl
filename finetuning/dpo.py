@@ -16,7 +16,7 @@ from transformers import (
 import torch.distributed as dist
 from peft import PeftConfig, PeftModel, LoraConfig, get_peft_model
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk, Features, Value, Sequence
-from trl import SFTConfig, SFTTrainer
+from trl import DPOConfig, DPOTrainer
 import wandb
 import ast
 import random
@@ -82,24 +82,24 @@ def parse_args() -> argparse.Namespace:
             setattr(args, k, v)
     return args
 
-    def _uniform_split(
-        full_ds: Dataset,
-        *,
-        eval_ratio: float,
-        n_eval: Optional[int],
-        seed: int,
-    ) -> DatasetDict:
-        k = n_eval if n_eval is not None else int(eval_ratio * len(full_ds))
-        k = min(k, len(full_ds))
-        eval_idx = set(random.sample(range(len(full_ds)), k=k))
-        train_idx = [i for i in range(len(full_ds)) if i not in eval_idx]
+def _uniform_split(
+    full_ds: Dataset,
+    *,
+    eval_ratio: float,
+    n_eval: Optional[int],
+    seed: int,
+) -> DatasetDict:
+    k = n_eval if n_eval is not None else int(eval_ratio * len(full_ds))
+    k = min(k, len(full_ds))
+    eval_idx = set(random.sample(range(len(full_ds)), k=k))
+    train_idx = [i for i in range(len(full_ds)) if i not in eval_idx]
 
-        return DatasetDict(
-            {
-                "train": full_ds.select(train_idx),
-                "eval": full_ds.select(sorted(eval_idx)),
-            }
-        )
+    return DatasetDict(
+        {
+            "train": full_ds.select(train_idx),
+            "eval": full_ds.select(sorted(eval_idx)),
+        }
+    )
 
 # --------------------------------------------------------------------------- #
 # Utilities
