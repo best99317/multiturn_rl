@@ -867,103 +867,6 @@ class TurnWiseDPOExecutor:
 
     # =================== CHUNK-WISE PROCESSING METHODS ===================
 
-    async def _process_turn1_chunk_complete(self, df_chunk: pd.DataFrame, dataset: str, turn: int, chunk_idx: int) -> List[Dict]:
-        """Complete processing pipeline for a Turn 1 chunk"""
-        try:
-            # Step 1: Generate initial user queries
-            chunk_states = []
-            for idx, row in df_chunk.iterrows():
-                try:
-                    # Create conversation text for context
-                    conv_text = ""
-                    for msg in row['original_conversation_parsed']:
-                        role = msg['role']
-                        content = msg['content']
-                        if role == 'user':
-                            conv_text += f"User: {content}\n"
-                        elif role == 'assistant':
-                            conv_text += f"Assistant: {content}\n"
-                    
-                    # Use the existing user_prompt_template
-                    formatted_user_prompt = self.user_prompt_template.format(
-                        conversation=conv_text.strip(),
-                        ground_truth=row['ground_truth'],
-                        terminal_signal=self.terminal_signal,
-                        chat_history=''
-                    )
-                    
-                    # Create temporary UserSimulator with the formatted prompt
-                    from simulators.user_simulator import UserSimulator
-                    temp_user_sim = UserSimulator(
-                        user_meta_prompt=formatted_user_prompt,
-                        **self.base_config.user_generation_kwargs
-                    )
-                    
-                    # Generate the initial user query directly
-                    user_query = await temp_user_sim.async_call([])
-                    
-                    if not user_query:
-                        user_query = "I'm looking for movie recommendations."
-                    
-                    state = {
-                        'id': row.get('dialog_id', idx),
-                        'ground_truth': row['ground_truth'],
-                        'original_conversation': row['original_conversation_parsed'],
-                        'current_conversation': [{"role": "user", "content": user_query.strip()}],
-                        'turn_number': 1,
-                        'terminated': False
-                    }
-                    chunk_states.append(state)
-                    
-                except Exception as e:
-                    logger.error(f"Error generating query for row {idx}: {e}")
-                    state = {
-                        'id': row.get('dialog_id', idx),
-                        'ground_truth': row['ground_truth'],
-                        'original_conversation': row['original_conversation_parsed'],
-                        'current_conversation': [{"role": "user", "content": "I'm looking for movie recommendations."}],
-                        'turn_number': 1,
-                        'terminated': False
-                    }
-                    chunk_states.append(state)
-            
-            # Step 2: Generate assistant responses
-            logger.info(f"    🤖 Generating assistant responses...")
-            if self.base_config.use_bedrock_assistant:
-                from simulators.assistant_simulator import AssistantSimulator
-                assistant_sim = AssistantSimulator(
-                    assistant_meta_prompt=self.base_config.assistant_meta_prompt,
-                    **self.base_config.assistant_generation_kwargs
-                )
-            else:
-                from simulators.local_assistant_simulator import LoRAAssistantSimulator
-                assistant_sim = LoRAAssistantSimulator(
-                    assistant_meta_prompt=self.base_config.assistant_meta_prompt,
-                    lora_model_path=self.base_config.local_model_path,
-                    base_model_path=self.base_config.base_model_path,
-                    num_gpus=torch.cuda.device_count() if torch.cuda.is_available() else 1,
-                    **self.base_config.assistant_generation_kwargs
-                )
-            
-            chunk_with_responses = await self._generate_assistant_responses_chunk(chunk_states, assistant_sim)
-            
-            # Step 3: Generate conversations
-            logger.info(f"    💬 Generating conversations...")
-            chunk_with_conversations = await self._generate_conversations_chunk_with_simulator(chunk_with_responses)
-            
-            # Step 4: Evaluate conversations
-            logger.info(f"    🏆 Evaluating conversations...")
-            chunk_with_rewards = await self._evaluate_rewards_chunk_with_reasoning(chunk_with_conversations)
-            
-            # Step 5: Extract turn data
-            chunk_turn_data = self._extract_turn_data_with_chosen_rejected(chunk_with_rewards, turn)
-            
-            return chunk_turn_data
-            
-        except Exception as e:
-            logger.error(f"Error processing Turn 1 chunk {chunk_idx}: {e}")
-            return []
-
     async def _generate_next_turn_user_queries(self, states: List[Dict], turn: int) -> List[Dict]:
         """Generate user queries for next turn based on chosen conversation"""
         updated_states = []
@@ -1089,23 +992,6 @@ class TurnWiseDPOExecutor:
             terminal_signal=self.terminal_signal,
             chat_history="{chat_history}"
         )
-
-    async def _generate_user_query(self, formatted_user_prompt: str, fallback_query: str = "I'm looking for movie recommendations.") -> str:
-        """Generate a user query using UserSimulator"""
-        try:
-            from simulators.user_simulator import UserSimulator
-            temp_user_sim = UserSimulator(
-                user_meta_prompt=formatted_user_prompt,
-                **self.base_config.user_generation_kwargs
-            )
-            
-            messages = [{"role": "assistant", "content": "What kind of movies are you interested in?"}]
-            user_query = await temp_user_sim.async_call(messages)
-            
-            return user_query.strip() if user_query else fallback_query
-        except Exception as e:
-            logger.error(f"Error generating user query: {e}")
-            return fallback_query
 
     async def _generate_assistant_response(self, conversation_context: List[Dict], assistant_sim) -> str:
         """Generate a single assistant response"""
