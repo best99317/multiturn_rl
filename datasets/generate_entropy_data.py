@@ -791,8 +791,7 @@ class CSVUserResponseGenerator:
             logger.error(f"Error during entropy reprocessing: {e}")
             raise
 
-async def main():
-    dataset = "inspired"
+async def main(dataset: str):
     alg = "vanilla"
     model = "llama3-2-1b-instruct"
     
@@ -839,9 +838,8 @@ async def main():
         max_concurrent=50 # Adjust based on your rate limits
     )
 
-async def reprocess_failed_entropy():
+async def reprocess_failed_entropy(dataset: str):
     """Reprocess rows with failed entropy calculations"""
-    dataset = "inspired"
     alg = "vanilla"
     model = "llama3-2-1b-instruct"
     user_prompt_template_path = "../prompts/test_user_prompt.txt"
@@ -998,11 +996,14 @@ def process_entropy_csv(input_file, output_file):
 
 # Run the script
 if __name__ == "__main__":
-    asyncio.run(main())
-    asyncio.run(reprocess_failed_entropy())
+    dataset = "redial"
+    asyncio.run(main(dataset))
+    asyncio.run(reprocess_failed_entropy(dataset))
     # Replace with your actual file paths
-    dataset = "inspired"
+    
     model = "llama3-2-1b-instruct"
+    for i in range(50):
+        print("dataset: ", dataset)
     input_file = f"/home/sagemaker-user/csbai/multiturn_rl/datasets/{dataset}/DPO_entropy/{model}/combined_all_turns.csv"
     output_file = f"/home/sagemaker-user/csbai/multiturn_rl/datasets/{dataset}/DPO_entropy/{model}/DPO_entropy_reduced.csv"
 
