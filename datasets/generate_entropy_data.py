@@ -155,7 +155,7 @@ class ConversationEntropyAnalyzer:
         Each inner list is a ranked list of recommendations (e.g., top-k movies).
         """
         if not responses or not all(responses):
-            return math.log2(self.num_items * self.num_samples)
+           return math.log2(self.num_items * self.num_samples)
         num_lists = len(responses)
         top_k = len(responses[0])
         # Position weights: w_r = 1 / log2(r + 1)
