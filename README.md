@@ -89,7 +89,8 @@ Under folder ```datasets/{dataset}/``` where ```{dataset}``` could be ```inspire
 - This is done in ```datasets/pick_highreward_sft.ipynb``` where one can specify the metric and a ```.csv``` file generated for DPO to filter from.
 
 ### Run Supervised Fine-Tuning (SFT) and Direct Preference Optimization (DPO)
-One can specify the data path, script path, model output path, and other arguements in the script and run
+One can specify the data path, script path, model output path, and other arguements in the script and run. **Fill in your own huggingface token and wandb api key before executing the scripts.**
+
 ```bash
 ./scripts/sft_inspired.sh
 ```
