@@ -10,7 +10,12 @@ import time
 import math
 from concurrent.futures import ThreadPoolExecutor
 import sys
-sys.path.append('/home/sagemaker-user/csbai/multiturn_rl')
+import os
+
+# Automatically add the root project directory to sys.path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.append(project_root)
 from simulators.user_simulator import UserSimulator
 from utils.bedrock_call import bedrock_call
 

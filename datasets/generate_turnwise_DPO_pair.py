@@ -20,7 +20,12 @@ logger = logging.getLogger(__name__)
 # Import your existing conversation generator and evaluator
 import sys
 import torch
-sys.path.append('/home/sagemaker-user/csbai/multiturn_rl')
+import os
+
+# Automatically add the root project directory to sys.path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.append(project_root)
 from simulators.conversation_simulator import ConversationConfig, MultiTurnConversationGenerator
 
 # Import the reward evaluator components
