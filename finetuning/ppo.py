@@ -116,7 +116,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--lora_target_modules", nargs="+", default=["q_proj", "v_proj"], help="LoRA target modules")
 
     # vLLM configuration
-    p.add_argument("--use_vllm", action="store_true", default=True, help="Use vLLM for faster inference")
+    p.add_argument("--use_vllm", action="store_true", default=False, help="Use vLLM for faster inference")
     p.add_argument("--gpu_memory_utilization", type=float, default=0.2, help="GPU memory utilization for vLLM")
     p.add_argument("--max_model_len", type=int, default=4096, help="Maximum model length for vLLM")
     
@@ -292,44 +292,13 @@ def load_model_and_tokenizer(
     vllm_engine = None
     if use_vllm:
         try:
-            import gc
-            gc.collect()
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
-            
-            # Additional cleanup for any lingering tensors
-            for obj in gc.get_objects():
-                try:
-                    if torch.is_tensor(obj) and obj.is_cuda:
-                        del obj
-                except:
-                    pass
-            
-            gc.collect()
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
-            
-            # Small delay to ensure cleanup completes
-            import time
-            time.sleep(1)
-            
             from vllm import LLM
-            world_size = int(os.environ.get('WORLD_SIZE', '1'))
-            local_rank = int(os.environ.get('LOCAL_RANK', '0'))
-            print(f"[Rank {local_rank}] Initializing vLLM with tensor_parallel_size={world_size}")
             vllm_args = {
                 "model": tokenizer_base,
                 "dtype": "bfloat16" if torch.cuda.is_bf16_supported() else "float16",
                 "distributed_executor_backend": "external_launcher",
                 "gpu_memory_utilization": gpu_memory_utilization,
                 "max_model_len": max_model_len,
-                "tensor_parallel_size": world_size,  # Use ALL GPUs
-                "disable_custom_all_reduce": True,
-                "enforce_eager": True,  # Disable CUDA graph for memory stability
-                "disable_log_stats": True,  # Add this
-                "disable_sliding_window": True,  # Add this
-                "enable_prefix_caching": False,  # Add this
-                "preemption_mode": "recompute",  # Add this
             }
             
             # Only add quantization args if actually using quantization
@@ -344,13 +313,10 @@ def load_model_and_tokenizer(
             
             vllm_engine = LLM(**vllm_args)
             print("✓ vLLM engine initialized")
-        except ImportError:
-            print("⚠️ vLLM not available, skipping vLLM engine initialization")
-            vllm_engine = None
         except Exception as e:
             print(f"⚠️ Failed to initialize vLLM: {e}")
             vllm_engine = None
-    
+
     return model, tok, vllm_engine
 
 def load_csv_dataset(dataset_repo: str, eval_ratio: float = 0.0, seed: int = 42):
@@ -393,7 +359,9 @@ def generate_vllm_parallel(model, tokenizer, vllm_engine, prompts, generation_kw
             n=generation_kwargs.get("n", 1),
             top_k=generation_kwargs.get("top_k", 50),
             # Add these for stability:
-            repetition_penalty=1.0
+            repetition_penalty=1.0,
+            frequency_penalty=0.0,
+            presence_penalty=0.0,
         )
         
         # Generate with vLLM
@@ -566,7 +534,8 @@ def main() -> None:
         remove_unused_columns=False,
         is_peft_model=True,
         use_score_scaling=args.use_score_scaling, 
-        use_score_norm=args.use_score_norm
+        use_score_norm=args.use_score_norm,
+        kl_penalty = "full"
     )
 
     # PPO Trainer

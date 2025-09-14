@@ -115,8 +115,8 @@ class RewardCalculatorFactory:
         entropy_config = {
             'model_id': 'us.meta.llama3-1-8b-instruct-v1:0',
             'user_model_id': 'us.anthropic.claude-3-haiku-20240307-v1:0',
-            'num_samples': 5,
-            'num_items': 5,
+            'num_samples': 10,
+            'num_items': 3,
             'max_workers': 10,
         }
         entropy_config.update(config)

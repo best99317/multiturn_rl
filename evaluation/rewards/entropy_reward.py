@@ -258,7 +258,8 @@ Make sure each recommendation is unique and plausible given the conversation con
                     logger.error(f"Sample failed: {e}")
                     
         if not all_responses:
-            raise RuntimeError(f"All {self.num_samples} sampling attempts failed")
+            logger.warning("No successful samples obtained")
+            return math.log2(self.num_items * self.num_samples)
         
         if failed_samples > 0:
             logger.warning(f"{failed_samples}/{self.num_samples} samples failed")
